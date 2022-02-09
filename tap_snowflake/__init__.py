@@ -120,18 +120,31 @@ def create_column_metadata(cols):
 def get_tables_from_selection(snowflake_conn, tables_selection):
     new_tables_selection = set()
     for table in tables_selection:
-        if table.endswith(".*.*"):
-            database = tables_selection.split(".*.*")[0]
-            LOGGER.info(f'Getting schemas and tables information for {tables_selection}...')
-            for schema in snowflake_conn.query(f"SHOW SCHEMAS IN {database}", max_records=SHOW_COMMAND_MAX_ROWS):
-                for table in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema}", max_records=SHOW_COMMAND_MAX_ROWS):
-                    new_tables_selection.add(f"{database}.{schema}.{table}")
+        if table == "*.*.*":
+            LOGGER.warn(f'Searching all database, schemas, and tables. This could take a while!')
+            LOGGER.info(f'Getting databases, schemas, and tables information for {table}...')
+            for database_results in snowflake_conn.query(f"SHOW DATABASES", max_records=SHOW_COMMAND_MAX_ROWS):
+                database = database_results.get("name")
+                for schema_results in snowflake_conn.query(f"SHOW SCHEMAS IN {database}", max_records=SHOW_COMMAND_MAX_ROWS):
+                    schema_name = schema_results.get("name")
+                    for table_results in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema_name}", max_records=SHOW_COMMAND_MAX_ROWS):
+                        table_name = table_results.get("name")
+                        new_tables_selection.add(f"{database}.{schema_name}.{table_name}")
+        elif table.endswith(".*.*"):
+            database = table.split(".*.*")[0]
+            LOGGER.info(f'Getting schemas and tables information for {table}...')
+            for schema_results in snowflake_conn.query(f"SHOW SCHEMAS IN {database}", max_records=SHOW_COMMAND_MAX_ROWS):
+                schema_name = schema_results.get("name")
+                for table_results in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema_name}", max_records=SHOW_COMMAND_MAX_ROWS):
+                    table_name = table_results.get("name")
+                    new_tables_selection.add(f"{database}.{schema_name}.{table_name}")
         elif table.endswith('.*'):
-            database = tables_selection.split(".")[0]
-            schema = tables_selection.split(".")[1]
-            LOGGER.info(f'Getting tables information for {tables_selection}...')
-            for table in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema}", max_records=SHOW_COMMAND_MAX_ROWS):
-                new_tables_selection.add(f"{database}.{schema}.{table}")
+            database = table.split(".")[0]
+            schema_name = table.split(".")[1]
+            LOGGER.info(f'Getting tables information for {table}...')
+            for table_results in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema_name}", max_records=SHOW_COMMAND_MAX_ROWS):
+                table_name = table_results.get("name")
+                new_tables_selection.add(f"{database}.{schema_name}.{table_name}")
         else:
             new_tables_selection.add(table)
     return list(new_tables_selection)
