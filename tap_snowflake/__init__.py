@@ -120,13 +120,13 @@ def create_column_metadata(cols):
 def get_tables_from_selection(snowflake_conn, tables_selection):
     new_tables_selection = set()
     for table in tables_selection:
-        if tables_selection.endswith(".*.*"):
+        if table.endswith(".*.*"):
             database = tables_selection.split(".*.*")[0]
             LOGGER.info(f'Getting schemas and tables information for {tables_selection}...')
             for schema in snowflake_conn.query(f"SHOW SCHEMAS IN {database}", max_records=SHOW_COMMAND_MAX_ROWS):
                 for table in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema}", max_records=SHOW_COMMAND_MAX_ROWS):
                     new_tables_selection.add(f"{database}.{schema}.{table}")
-        elif tables_selection.endswith('.*'):
+        elif table.endswith('.*'):
             database = tables_selection.split(".")[0]
             schema = tables_selection.split(".")[1]
             LOGGER.info(f'Getting tables information for {tables_selection}...')
