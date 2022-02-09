@@ -117,6 +117,24 @@ def create_column_metadata(cols):
 
     return metadata.to_list(mdata)
 
+def get_tables_from_selection(snowflake_conn, tables_selection):
+    new_tables_selection = set()
+    for table in tables_selection:
+        if tables_selection.endswith(".*.*"):
+            database = tables_selection.split(".*.*")[0]
+            LOGGER.info(f'Getting schemas and tables information for {tables_selection}...')
+            for schema in snowflake_conn.query(f"SHOW SCHEMAS IN {database}", max_records=SHOW_COMMAND_MAX_ROWS):
+                for table in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema}", max_records=SHOW_COMMAND_MAX_ROWS):
+                    new_tables_selection.add(f"{database}.{schema}.{table}")
+        elif tables_selection.endswith('.*'):
+            database = tables_selection.split(".")[0]
+            schema = tables_selection.split(".")[1]
+            LOGGER.info(f'Getting tables information for {tables_selection}...')
+            for table in snowflake_conn.query(f"SHOW TABLES IN {database}.{schema}", max_records=SHOW_COMMAND_MAX_ROWS):
+                new_tables_selection.add(f"{database}.{schema}.{table}")
+        else:
+            new_tables_selection.add(table)
+    return list(new_tables_selection)
 
 def get_table_columns(snowflake_conn, tables):
     """Get column definitions of a list of tables
@@ -170,7 +188,8 @@ def get_table_columns(snowflake_conn, tables):
 
 def discover_catalog(snowflake_conn, config):
     """Returns a Catalog describing the structure of the database."""
-    tables = config.get('tables').split(',')
+    table_selections = config.get('tables').split(',')
+    tables = get_tables_from_selection(snowflake_conn, table_selections)
     sql_columns = get_table_columns(snowflake_conn, tables)
 
     table_info = {}
